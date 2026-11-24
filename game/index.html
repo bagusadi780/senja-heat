@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Last Second Chance — Port Senja</title>
+<style>
+  :root{--ink:#fff7ea;--muted:#cdbfa8;--accent:#ffb347;--teal:#39d0c4;--danger:#ff5252;--panel:rgba(16,12,20,.82)}
+  *{box-sizing:border-box} html,body{margin:0;height:100%;overflow:hidden;background:#1a1024;color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+  #game{position:fixed;inset:0} #game canvas{display:block}
+  #hud{position:fixed;inset:0;pointer-events:none}
+  #top-left{position:fixed;left:18px;top:16px;background:var(--panel);border:1px solid rgba(255,179,71,.35);border-radius:10px;padding:10px 14px;min-width:210px}
+  #health-wrap{height:10px;background:#3a2b33;border-radius:6px;overflow:hidden;margin:6px 0}#health-bar{height:100%;width:100%;background:linear-gradient(90deg,#7dc383,#b7e07a)}
+  #stamina-wrap{height:6px;background:#2b3340;border-radius:4px;overflow:hidden;margin:0 0 6px}#stamina-bar{height:100%;width:100%;background:linear-gradient(90deg,#39d0c4,#7de8de)}
+  #wheel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--panel);border:1px solid rgba(255,179,71,.5);border-radius:12px;padding:14px;min-width:280px;z-index:5}
+  #wheel[hidden]{display:none} .wheel-slot{padding:8px 10px;border-radius:8px;font-size:15px;cursor:pointer}
+  .wheel-slot.sel{background:rgba(255,179,71,.25)} .wheel-slot.locked{opacity:.38} .wheel-slot b{display:inline-block;width:22px;color:var(--accent)}
+  .wheel-slot span{float:right;color:var(--muted);font-size:13px}
+  #cash{color:var(--accent);font-weight:800;font-size:20px} #speed{color:var(--muted);font-size:13px}
+  #objective{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid rgba(57,208,196,.4);padding:9px 16px;border-radius:999px;font-size:14px;max-width:62vw;text-align:center}
+  #prompt{position:fixed;left:50%;bottom:118px;transform:translateX(-50%);background:var(--panel);padding:8px 14px;border-radius:8px;font-size:15px}
+  #prompt[hidden]{display:none}
+  #vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 42%,transparent 58%,rgba(10,4,18,0.38) 100%)}
+  #minimap-wrap{position:fixed;right:18px;bottom:18px;width:196px;height:196px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,247,234,.85);box-shadow:0 8px 30px rgba(0,0,0,.5);background:#141021}
+  #minimap{width:196px;height:196px}
+  #controls{position:fixed;left:18px;bottom:18px;background:var(--panel);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--muted);line-height:1.5}
+  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 35%,rgba(255,122,61,.28),rgba(10,6,18,.88) 65%);pointer-events:auto}
+  .overlay[hidden]{display:none}
+  .card{text-align:center;max-width:620px;padding:34px 40px;background:rgba(14,10,20,.78);border:1px solid rgba(255,179,71,.45);border-radius:16px}
+  .card h1{margin:0;font-size:54px;letter-spacing:.04em;color:var(--accent);text-shadow:0 4px 24px rgba(255,122,61,.6)}
+  .card h2{margin:4px 0 10px;font-weight:600;color:var(--teal);letter-spacing:.22em;font-size:15px}
+  .card p{color:var(--ink);line-height:1.55}
+  .btn{pointer-events:auto;cursor:pointer;border:0;border-radius:10px;background:var(--accent);color:#241305;font-weight:800;font-size:17px;padding:12px 30px;margin-top:10px}
+  .btn:hover{filter:brightness(1.1)}
+  kbd{background:#2c2135;border:1px solid #5a476b;border-radius:4px;padding:1px 6px;font-family:inherit}
+  #dialog{position:fixed;left:50%;bottom:230px;transform:translateX(-50%);width:min(560px,86vw);background:var(--panel);border-left:4px solid var(--teal);border-radius:8px;padding:12px 16px}
+  #dialog[hidden]{display:none} #dialog b{color:var(--teal)}
+  #wanted{font-size:21px;letter-spacing:3px;color:#5a4a52;line-height:1.15}
+  #wanted .on{color:#ffc93d;text-shadow:0 0 9px rgba(255,180,40,.85)}
+  #wanted.searching .on{animation:blink .5s steps(2) infinite}
+  @keyframes blink{50%{opacity:.25}}
+  #ammo{color:var(--ink);font-size:13px;margin-top:2px} #ammo b{color:var(--accent)}
+  #crosshair{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:26px;height:26px;pointer-events:none}
+  #crosshair:before,#crosshair:after{content:"";position:absolute;background:rgba(255,247,234,.92);box-shadow:0 0 4px #000}
+  #crosshair:before{left:12px;top:0;width:2px;height:26px}
+  #crosshair:after{left:0;top:12px;width:26px;height:2px}
+  #crosshair .dot{position:absolute;left:11px;top:11px;width:4px;height:4px;border-radius:50%;background:#ff5252;z-index:1}
+  #crosshair[hidden]{display:none}
+  #busted-wrap{position:fixed;left:50%;bottom:190px;transform:translateX(-50%);width:min(420px,70vw);background:var(--panel);border:1px solid rgba(80,150,255,.6);border-radius:8px;padding:8px 14px;text-align:center}
+  #busted-wrap[hidden]{display:none}
+  #fade{position:fixed;inset:0;background:#06030a;opacity:0;pointer-events:none;transition:opacity .32s ease;z-index:40}
+  #radio-toast{position:fixed;top:64px;right:18px;background:var(--panel);border:1px solid rgba(57,208,196,.5);border-radius:8px;padding:7px 12px;font-size:13px;z-index:6}
+  #radio-toast[hidden]{display:none} #radio-toast b{color:var(--teal)}
+  #photo-tag{position:fixed;left:18px;top:16px;font-size:13px;letter-spacing:.24em;color:rgba(255,247,234,.85);z-index:6}
+  #photo-tag[hidden]{display:none}
+  #int-label{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid rgba(255,179,71,.5);padding:8px 16px;border-radius:999px;font-size:14px;z-index:6}
+  #int-label[hidden]{display:none}
+  #phone{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(6,3,12,.72);z-index:30;pointer-events:auto}
+  #phone[hidden]{display:none}
+  #phone .device{background:#101018;border:2px solid #3a3a4a;border-radius:22px;padding:14px;width:min(820px,94vw)}
+  #phone h3{margin:2px 0 8px;font-size:15px;letter-spacing:.18em;color:var(--teal)}
+  #phone canvas{width:100%;height:auto;background:#175263;border-radius:10px}
+  #phone .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin-top:8px}
+  #phone .row{display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .pbtn{pointer-events:auto;cursor:pointer;border:1px solid rgba(255,179,71,.6);background:#241a10;color:var(--ink);border-radius:8px;padding:7px 14px;font-weight:700}
+  #shop{position:fixed;right:18px;top:110px;width:300px;background:var(--panel);border:1px solid rgba(255,179,71,.55);border-radius:12px;padding:14px;z-index:20;pointer-events:auto}
+  #shop[hidden]{display:none} #shop h3{margin:0 0 4px;font-size:15px;color:var(--accent)} #shop p{font-size:12px;color:var(--muted);margin:0 0 8px}
+  .shop-item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,.08);font-size:13px}
+  #stats{font-size:13px;color:var(--muted);line-height:1.65;text-align:left;margin:10px auto 0;max-width:340px}
+  #stats b{color:var(--ink);float:right}
+  #busted-wrap .lbl{font-weight:800;letter-spacing:.28em;color:#7db4ff;font-size:14px}
+  #busted-track{height:10px;background:#26314a;border-radius:6px;overflow:hidden;margin-top:6px}
+  #busted-bar{height:100%;width:0%;background:linear-gradient(90deg,#3d7fd9,#7db4ff)}
+  #hurt{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,rgba(255,30,30,.5));opacity:0;transition:opacity .12s}
+  #end-title{font-size:52px}
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.min.js",
+    "three/addons/": "./vendor/three/addons/" } }
+</script>
+</head>
+<body>
+<div id="game"></div>
+<div id="vignette"></div>
+<div id="hud">
+  <div id="top-left"><div style="font-size:12px;letter-spacing:.18em;color:var(--muted)">RAKA — DRIVER FOR HIRE</div>
+    <div id="wanted" title="Wanted level">☆☆☆☆☆</div>
+    <div id="health-wrap"><div id="health-bar"></div></div>
+    <div id="stamina-wrap"><div id="stamina-bar"></div></div>
+    <div><span id="cash">$250</span> &nbsp;<span id="speed">On foot</span></div>
+    <div id="ammo">🔫 Pistol &nbsp;<b id="ammo-count">12</b> / ∞ &nbsp;<span id="reload-note" style="color:var(--muted)"></span></div></div>
+  <div id="crosshair" hidden><div class="dot"></div></div>
+  <div id="busted-wrap" hidden><div class="lbl">BUSTED</div><div id="busted-track"><div id="busted-bar"></div></div></div>
+  <div id="hurt"></div>
+  <div id="objective">📍 Objective: Find a car — press E near one to drive</div>
+  <div id="prompt" hidden>Press <kbd>E</kbd> to enter car</div>
+  <div id="dialog" hidden><b>Sari (fixer):</b> <span id="dialog-text">Welcome to Port Senja, Raka. Grab any parked car and get a feel for the streets. The harbor job comes next.</span></div>
+  <div id="wheel" hidden></div>
+  <div id="controls">WASD move / drive &nbsp;•&nbsp; Shift run &nbsp;•&nbsp; E enter/exit car &nbsp;•&nbsp; C crouch<br>Click / F shoot &nbsp;•&nbsp; R reload &nbsp;•&nbsp; Tab weapon wheel &nbsp;•&nbsp; 1–5 weapons<br>Space roll/vault (foot) / handbrake (car) &nbsp;•&nbsp; V camera &nbsp;•&nbsp; L lights &nbsp;•&nbsp; H horn<br>P / Esc pause &nbsp;•&nbsp; Right-drag aim &nbsp;•&nbsp; Lose the police to drop ★</div>
+  <div id="minimap-wrap"><canvas id="minimap" width="196" height="196"></canvas></div>
+</div>
+<div class="overlay" id="title-screen"><div class="card">
+  <h1 style="font-size:44px">Last Second Chance</h1><h2>PORT SENJA • DUSK SHIFT</h2>
+  <p>An original open-world driving game. Play as <b>Raka</b>, a driver-for-hire in the tropical harbor city of Port Senja. Walk the neon streets, take any car, follow the radar, and run jobs for fixer <b>Sari</b> as the sun goes down.</p>
+  <p style="color:var(--muted);font-size:13px">WASD move • E enter/exit car • Shift run • P pause</p>
+  <button class="btn" id="start-btn">▶ Start — Free Roam</button>
+  <button class="btn" id="continue-btn" hidden style="background:var(--teal)">↩ Continue — Save</button>
+  <button class="btn" id="mission-btn" style="background:#ff7a3c">★ Story — Sari's Chain</button>
+  <p style="color:var(--muted);font-size:12px">F interact • M phone/map • O photo mode • R radio (in car) • G garage (at safehouse)</p>
+</div></div>
+<div class="overlay" id="pause-screen" hidden><div class="card">
+  <h1 style="font-size:38px">PAUSED</h1><p>Port Senja waits.</p>
+  <div id="stats"></div>
+  <button class="btn" id="resume-btn">Resume</button>
+  <button class="btn" id="save-btn" style="background:var(--teal)">💾 Save</button>
+</div></div>
+<div class="overlay" id="end-screen" hidden><div class="card">
+  <h1 id="end-title">BUSTED</h1>
+  <p id="end-text">The Port Senja police got you.</p>
+  <button class="btn" id="respawn-btn">Continue</button>
+</div></div>
+<div id="fade"></div>
+<div id="radio-toast" hidden>📻 <b id="radio-name"></b> <span id="radio-sub" style="color:var(--muted)"></span></div>
+<div id="photo-tag" hidden>📷 PHOTO MODE — O to exit</div>
+<div id="int-label" hidden></div>
+<div id="shop" hidden><h3>TOKO SENJATA BANG RUDI</h3><p>Cash only. No questions. — Rudi</p><div id="shop-items"></div><button class="pbtn" id="shop-close" style="margin-top:8px">Close (F)</button></div>
+<div id="phone" hidden><div class="device"><div class="row"><h3>📱 SENJA PHONE — PETA PORT SENJA</h3><button class="pbtn" id="phone-close">Close (M)</button></div><canvas id="phone-map" width="780" height="540"></canvas><div class="legend" id="phone-legend"></div><div class="row" style="margin-top:8px"><span id="phone-obj" style="font-size:13px"></span><button class="pbtn" id="photo-btn">📷 Photo Mode</button></div></div></div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
